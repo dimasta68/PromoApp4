@@ -1,0 +1,2 @@
+int raw all 0x7f140001
+int raw console 0x7f140002

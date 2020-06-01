@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">Промокоды Беру</string>
+    <string name="tab_text_1">Промокоды</string>
+    <string name="tab_text_2">Все</string>
+    <string name="tab_text_3">Акции</string>
+    <string name="promocodeqest">Не успели использовать\nпромокод?</string>
+    <string name="hasback">Кэшбэк в Беру.ру\nдо 9.9% от заказа</string>
+    <string name="gift100">Дарим + 100 руб. на счет и\nкэшбэк в лучших магазинах РФ</string>
+    <string name="facebook_app_id">2642135722690715</string> <string name="fb_login_protocol_scheme">fb2642135722690715</string>
+
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+
+    <string name="descr_tikets">Скидки предоставляются по промокоду и распррстраняются на широкий ассортимент товаров,участвующих в акции.</string>
+</resources>

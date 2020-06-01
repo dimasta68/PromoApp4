@@ -1,0 +1,2 @@
+configurations.maybeCreate("default")
+artifacts.add("default", file('UserX-2.7.3.aar'))
