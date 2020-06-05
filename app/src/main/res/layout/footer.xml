@@ -12,6 +12,8 @@
         android:visibility="gone" />
     <ImageView
         android:id="@+id/banner2"
+        android:scaleType="centerCrop"
+        android:adjustViewBounds="true"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_weight="1"

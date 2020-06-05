@@ -34,7 +34,7 @@
                 android:textSize="15dp"
                 android:minHeight="?actionBarSize"
                 android:padding="@dimen/appbar_padding"
-                android:text="Промокоды Беру Май 2020"
+                android:text="Промокоды Беру Июнь 2020"
                 android:textAppearance="@style/TextAppearance.Widget.AppCompat.Toolbar.Title"
                 android:textColor="@color/design_default_color_on_secondary" />
         </androidx.appcompat.widget.LinearLayoutCompat>

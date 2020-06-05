@@ -22,6 +22,7 @@ import android.view.animation.AnimationUtils;
 import android.widget.AdapterView;
 import android.widget.HeaderViewListAdapter;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.SimpleAdapter;
 import android.widget.TextView;
@@ -31,34 +32,37 @@ import android.widget.Toast;
 import com.example.promoapp.R;
 import com.squareup.picasso.Picasso;
 
-import org.apache.http.NameValuePair;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
+
 
 import io.paperdb.Paper;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+import retrofit2.Retrofit;
+import retrofit2.converter.scalars.ScalarsConverterFactory;
 
 
 /**
  * A simple {@link Fragment} subclass.
  */
 public class AkciiFragment extends Fragment {
-    private ProgressDialog pDialog;
-    JSONParser jParser = new JSONParser();
 
+    View view;
     ArrayList<HashMap<String, String>> productsList;
     ArrayList<HashMap<String, String>> productsListHASH;
     android.widget.ListAdapter adapter;
-    // url получения списка всех продуктов
-    private static String url_all_products = "http://sh1024484.had.su/promocode.php";
-
-    // JSON Node names
-    private static final String TAG_SUCCESS = "success";
-    private static final String TAG_PRODUCTS = "products";
+    String img_link_baner, bannerPos, link_baner;
+    View headerView, footer;
+    LinearLayout headerLayout;
+    boolean headerchek = false;
+    private RetroAdapter retroAdapter;
     private static final String TAG_PID = "pid";
     private static final String TAG_NAME = "title";
     private static final String TAG_END = "end_skidka";
@@ -68,25 +72,29 @@ public class AkciiFragment extends Fragment {
     private static final String TAG_PROMO = "decsript";
     ListView lv;
     // тут будет хранится список продуктов
-    JSONArray products = null;
+
     private Object ListAdapter;
     ImageView banner1, banner2;
     private SwipeRefreshLayout mSwipeRefreshLayout;
+
     String internet;
 
-    @SuppressLint("ResourceType")
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.fragment_akcii, container, false);
+        view = inflater.inflate(R.layout.fragment_akcii, container, false);
+
         // Creating an extended library configuration.
         Intent intent = getActivity().getIntent();
         internet = intent.getStringExtra("internet");
         Animation mycombo = AnimationUtils.loadAnimation(getActivity(), R.anim.myalpha);
         productsList = new ArrayList<HashMap<String, String>>();
         lv = view.findViewById(R.id.list);///init click
+
+
         if (internet.equals("2")) {
-            new LoadAllProductsAkcii().execute();
+            getBanner();
+            getJSONResponse();
         }
         if (internet.equals("1")) {
             productsListHASH = Paper.book().read("akcii");
@@ -104,46 +112,38 @@ public class AkciiFragment extends Fragment {
             @Override
             public void onRefresh() {
 
-                if(internet.equals("2")){new LoadAllProductsAkcii().execute();}
-                else{mSwipeRefreshLayout.setRefreshing(false);
+                if (internet.equals("2")) {
+                    getJSONResponse();
+                } else {
+                    mSwipeRefreshLayout.setRefreshing(false);
                     Toast.makeText(getContext(), "подключитесь к интернету", Toast.LENGTH_SHORT).show();
                 }
             }
         });
-        View headerView = inflater.inflate(R.layout.header_view, null, true);
+        headerView = inflater.inflate(R.layout.header_view, null, true);
         banner1 = (ImageView) headerView.findViewById(R.id.banner1);
-        Picasso.with(view.getContext().getApplicationContext())
-                .load("http://sh1024484.had.su/web/images/beru_banner_app.png")
-                .placeholder(R.drawable.common_google_signin_btn_icon_dark) //показываем что-то, пока не загрузится указанная картинка
-                .error(R.drawable.ic_launcher_background) // показываем что-то, если не удалось скачать картинку
-                .into(banner1);
+        headerLayout = (LinearLayout) headerView.findViewById(R.id.headerL);
         banner1.setClickable(true);
         banner1.setAnimation(mycombo);
         banner1.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-              Intent webintetn= new Intent(getContext(),WActivity.class);
-              startActivity(webintetn);
+                Intent webintetn = new Intent(getContext(), WActivity.class);
+                webintetn.putExtra("link",link_baner);
+                startActivity(webintetn);
 
             }
         });
 
-       lv.addHeaderView(headerView);//Add view to list view as header view
-
-        View footer = inflater.inflate(R.layout.footer, null, true);
+        footer = inflater.inflate(R.layout.footer, null, true);
         banner2 = (ImageView) footer.findViewById(R.id.banner2);
-        Picasso.with(view.getContext().getApplicationContext())
-                .load("http://sh1024484.had.su//web//images//Kalina.jpg")
-                .placeholder(R.drawable.common_google_signin_btn_icon_dark) //показываем что-то, пока не загрузится указанная картинка
-                .error(R.drawable.ic_launcher_background) // показываем что-то, если не удалось скачать картинку
-                .into(banner2);
         banner2.setClickable(true);
         banner2.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent browserIntent = new
-                        Intent(Intent.ACTION_VIEW, Uri.parse("http://sh1024484.had.su/web/index.php?r=baner%2Findex"));
-                startActivity(browserIntent);
+                Intent webintetn = new Intent(getContext(), WActivity.class);
+                webintetn.putExtra("link",link_baner);
+                startActivity(webintetn);
 
             }
         });
@@ -173,111 +173,195 @@ public class AkciiFragment extends Fragment {
                 startActivityForResult(in, 100);
             }
         });
+
         return view;
+
     }
 
+    private void getJSONResponse() {
 
-    class LoadAllProductsAkcii extends AsyncTask<String, String, JSONObject > {
+        Retrofit retrofit = new Retrofit.Builder()
+                .baseUrl(MyInterface.JSONURL)
+                .addConverterFactory(ScalarsConverterFactory.create())
+                .build();
 
-        /**
-         * Перед началом фонового потока Show Progress Dialog
-         */
-        @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
-            pDialog = new ProgressDialog(getActivity());
-            pDialog.setMessage("Загрузка продуктов. Подождите...");
-            pDialog.setIndeterminate(false);
-            pDialog.setCancelable(false);
-            pDialog.show();
-        }
+        MyInterface api = retrofit.create(MyInterface.class);
 
-        /**
-         * Получаем все продукт из url
-         */
+        Call<String> call = api.getString();
 
-        protected JSONObject  doInBackground(String... args) {
-            // Будет хранить параметры
-            HashMap<String, String> params = new HashMap<>();
-            // получаем JSON строк с URL
-            JSONObject json = jParser.makeHttpRequest(url_all_products, "GET", params);
+        call.enqueue(new Callback<String>() {
+            @Override
+            public void onResponse(Call<String> call, Response<String> response) {
+                Log.i("Responsestring", response.body().toString());
+                if (response.isSuccessful()) {
+                    if (response.body() != null) {
+                        Log.d("debug", response.body().toString());
 
+                        String jsonresponse = response.body().toString();
+                        writeListView(jsonresponse);
 
-            try {
-                // Получаем SUCCESS тег для проверки статуса ответа сервера
-                int success = json.getInt(TAG_SUCCESS);
-
-                if (success == 1) {
-                    // продукт найден
-                    // Получаем масив из Продуктов
-                    products = json.getJSONArray(TAG_PRODUCTS);
-
-                    // перебор всех продуктов
-                    for (int i = 0; i < products.length(); i++) {
-                        JSONObject c = products.getJSONObject(i);
-
-                        // Сохраняем каждый json елемент в переменную
-                        String id = c.getString("id");
-                        String name = c.getString(TAG_NAME);
-                        String end = c.getString(TAG_END);
-                        String skidka = c.getString(TAG_SKIDKA);
-                        String rating = c.getString(TAG_RATING);
-                        String links = c.getString(TAG_LINK);
-                        String descript = c.getString(TAG_PROMO);
-                        //    Log.d("debug", name);
-
-                        // Создаем новый HashMap
-                        HashMap<String, String> map = new HashMap<String, String>();
-
-                        // добавляем каждый елемент в HashMap ключ => значение
-                        map.put(TAG_PID, id);
-                        map.put(TAG_NAME, name);
-                        map.put(TAG_END, end);
-                        map.put(TAG_SKIDKA, skidka);
-                        map.put(TAG_RATING, rating);
-                        map.put(TAG_LINK, links);
-                        map.put(TAG_PROMO, descript);
-                        // добавляем HashList в ArrayList
-                        productsList.add(map);
-                        Paper.book().write("akcii", productsList);
-                        Log.d("debug","productlist "+productsList.toString());
-
+                    } else {
+                        //  Log.d("debug", "Returned empty response");//Toast.makeText(getContext(),"Nothing returned",Toast.LENGTH_LONG).show();
                     }
-                } return  json;
-          /*      else {
-                    // продукт не найден
-                    // Запускаем Add New Product Activity
-                    Intent i = new Intent(getContext(),
-                            MainActivity.class);
-                    // Закрытие всех предыдущие activities
-                    i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                    startActivity(i);
-                }*/
-            } catch (JSONException e) {
-                e.printStackTrace();
+                }
             }
 
-            return null;
+            @Override
+            public void onFailure(Call<String> call, Throwable t) {
+
+            }
+        });
+    }
+
+    private void writeListView(String response) {
+
+        try {
+            //getting the whole json object from the response
+            JSONObject obj = new JSONObject(response);
+            if (obj.optString("success").equals("1")) {
+
+                ArrayList<ModelListView> modelListViewArrayList = new ArrayList<>();
+                JSONArray dataArray = obj.getJSONArray("products");
+
+                for (int i = 0; i < dataArray.length(); i++) {
+
+                    ModelListView modelListView = new ModelListView();
+                    JSONObject dataobj = dataArray.getJSONObject(i);
+                    Log.d("debug", "Akcii data " + dataobj);
+                    // Paper.book().write("akcii", dataobj);
+
+                    //  modelListView.se(dataobj.getString("imgURL"));
+                    modelListView.setId(dataobj.getString("id"));
+                    modelListView.setTitle(dataobj.getString("title"));
+                    modelListView.setLinks(dataobj.getString("links"));
+                    modelListView.setEnd_skidka(dataobj.getString("end_skidka"));
+                    modelListView.setRating(dataobj.getString("rating"));
+                    modelListView.setSkidka(dataobj.getString("skidka"));
+                    modelListView.setDecsript(dataobj.getString("decsript"));
+
+
+                    modelListViewArrayList.add(modelListView);
+                    // Создаем новый HashMap
+                    HashMap<String, String> map = new HashMap<String, String>();
+                    // добавляем каждый елемент в HashMap ключ => значение
+                    map.put(TAG_PID, dataobj.getString("id"));
+                    map.put(TAG_NAME, dataobj.getString("title"));
+                    map.put(TAG_END, dataobj.getString("end_skidka"));
+                    map.put(TAG_SKIDKA, dataobj.getString("skidka"));
+                    map.put(TAG_RATING, dataobj.getString("rating"));
+                    map.put(TAG_LINK, dataobj.getString("links"));
+                    map.put(TAG_PROMO, dataobj.getString("decsript"));
+                    // добавляем HashList в ArrayList
+                    productsList.add(map);
+                    Paper.book().write("akcii", productsList);
+                }
+
+                retroAdapter = new RetroAdapter(getActivity(), modelListViewArrayList);
+                lv.setAdapter(retroAdapter);
+                mSwipeRefreshLayout.setRefreshing(false);
+
+            } else {
+                // Toast.makeText(getActivity(), obj.optString("message") + "", Toast.LENGTH_SHORT).show();
+            }
+
+        } catch (JSONException e) {
+            e.printStackTrace();
         }
 
-        /**
-         * После завершения фоновой задачи закрываем прогрес диалог
-         **/
-        protected void onPostExecute(JSONObject  json) {
-            Log.d("debug","JSONObject"+json);
-                pDialog.dismiss();
-            mSwipeRefreshLayout.setRefreshing(false);
-            // обновляем UI форму в фоновом потоке
+    }
 
-            adapter = new SimpleAdapter(
-                    getActivity(), productsList,
-                    R.layout.list_item, new String[]{TAG_PID,
-                    TAG_NAME, TAG_END, TAG_SKIDKA, TAG_RATING,TAG_LINK,TAG_PROMO},
-                    new int[]{R.id.pid, R.id.name, R.id.desriptionsidka, R.id.skid, R.id.rating,R.id.link,R.id.promocode});
-            // обновляем listview
-            //  lv.setEnabled(false);
-            lv.setAdapter(adapter);
+    private void getBanner() {
+
+        Retrofit retrofit = new Retrofit.Builder()
+                .baseUrl(MyInterface.JSONURL)
+                .addConverterFactory(ScalarsConverterFactory.create())
+                .build();
+
+        MyInterface4 api = retrofit.create(MyInterface4.class);
+
+        Call<String> call = api.getString();
+
+        call.enqueue(new Callback<String>() {
+            @Override
+            public void onResponse(Call<String> call, Response<String> response) {
+                Log.i("Responsestring", response.body().toString());
+                //Toast.makeText()
+                if (response.isSuccessful()) {
+                    if (response.body() != null) {
+                        Log.d("splash", "banenr" + response.body().toString());
+
+                        String jsonresponse = response.body().toString();
+                        writeBaner(jsonresponse);
+
+                    } else {
+                        // Log.d("debug", "Returned empty response");//Toast.makeText(getContext(),"Nothing returned",Toast.LENGTH_LONG).show();
+                    }
+                }
+            }
+
+            @Override
+            public void onFailure(Call<String> call, Throwable t) {
+
+            }
+        });
+    }
+
+    private void writeBaner(String response) {
+
+        try {
+            //getting the whole json object from the response
+            JSONObject obj = new JSONObject(response);
+            if (obj.optString("success").equals("1")) {
+
+
+                JSONArray dataArray = obj.getJSONArray("baner");
+
+
+                for (int i = 0; i < dataArray.length(); i++) {
+
+                    ModelListView modelListView = new ModelListView();
+                    JSONObject dataobj = dataArray.getJSONObject(i);
+
+                    // Paper.book().write("akcii", dataobj);
+                    dataobj.getString("id");
+                    img_link_baner = dataobj.getString("img_link");
+                    link_baner = dataobj.getString("link_baner");
+                    bannerPos = dataobj.getString("position");
+                    String newLink = img_link_baner.substring(30);
+                    img_link_baner = "http://" + newLink;
+                    Log.d("splash", "img =" + img_link_baner);
+
+                }
+
+
+            } else {
+                //  Toast.makeText(getActivity(), obj.optString("message") + "", Toast.LENGTH_SHORT).show();
+            }
+
+        } catch (JSONException e) {
+            e.printStackTrace();
         }
+        if (img_link_baner != null && bannerPos.equals("1")) {
+            Picasso.with(view.getContext().getApplicationContext())
+                    .load(img_link_baner)
+                    .placeholder(R.drawable.beru_main) //показываем что-то, пока не загрузится указанная картинка
+                    .error(R.drawable.beru_main) // показываем что-то, если не удалось скачать картинку
+                    .into(banner1);
+            lv.addHeaderView(headerView);//Add view to list view as header view
+        }
+        if (img_link_baner != null && bannerPos.equals("3")) {
 
+            Log.d("splash", "disable banner");
+        }
+        if (img_link_baner != null && bannerPos.equals("2")) {
+
+            Picasso.with(view.getContext().getApplicationContext())
+                    .load(img_link_baner)
+                    .placeholder(R.drawable.beru_main) //показываем что-то, пока не загрузится указанная картинка
+                    .error(R.drawable.beru_main) // показываем что-то, если не удалось скачать картинку
+                    .into(banner2);
+            lv.addFooterView(footer);//Add view to list view as header view
+            headerchek = true;
+        }
     }
 }

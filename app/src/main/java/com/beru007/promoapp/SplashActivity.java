@@ -3,6 +3,7 @@ package com.beru007.promoapp;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.annotation.SuppressLint;
 import android.app.Dialog;
 import android.app.ProgressDialog;
 
@@ -50,6 +51,7 @@ public class SplashActivity extends AppCompatActivity {
     String AppString;
     private FirebaseAnalytics mFirebaseAnalytics;
     String statusEntenet = "0";///0-отключен хеша нет,1-отключен хеш есть,2-есть интернет
+    String originalBeru = "No";
 
     /**
      * Called when the activity is first created.
@@ -86,10 +88,10 @@ public class SplashActivity extends AppCompatActivity {
         productsListHASHAkcii = Paper.book().read("akcii");
         productsListHASHApromo = Paper.book().read("promocode");
         if (productsListHASHAll != null & productsListHASHAkcii != null & productsListHASHApromo != null) {
-           // Log.d("debug", "hash true" + isInternetPresent);
+            Log.d("debug", "hash true" + isInternetPresent);
             hash = true;
         } else {
-          //  Log.d("debug", "hash false");
+            Log.d("debug", "hash false");
             hash = false;
         }
         ;
@@ -97,9 +99,7 @@ public class SplashActivity extends AppCompatActivity {
 
         stat = (TextView) findViewById(R.id.status);
         progressBar = (ProgressBar) findViewById(R.id.progressBar);
-        Animation mycombo = AnimationUtils.loadAnimation(this, R.anim.myscale);
-        ImageView imglogo = (ImageView) findViewById(R.id.imageView2);
-        imglogo.startAnimation(mycombo);
+
         cd = new ConnectionDetector(getApplicationContext());
         //Получаем статус Интернет
         isInternetPresent = cd.ConnectingToInternet();
@@ -116,7 +116,7 @@ public class SplashActivity extends AppCompatActivity {
                     /**
                      * Загружаем главную Activity, когда будем готовы
                      */
-                    stat.setText("загрузка пожалуйста подождите");
+                    stat.setText("Загрузка пожалуйста подождите");
                     Intent mainIntent = new Intent(SplashActivity.this, MainActivity.class);
                     mainIntent.putExtra("internet", "2");
                     SplashActivity.this.startActivity(mainIntent);
@@ -133,7 +133,7 @@ public class SplashActivity extends AppCompatActivity {
 
         }
         if (isInternetPresent == false && hash == true) {
-            stat.setText("загрузка из хеша  подождите");
+            stat.setText("Загрузка из хеша  подождите");
             Intent mainIntent = new Intent(SplashActivity.this, MainActivity.class);
             mainIntent.putExtra("internet", "1");
             SplashActivity.this.startActivity(mainIntent);
@@ -160,23 +160,26 @@ public class SplashActivity extends AppCompatActivity {
 
     private class LoadApplications extends AsyncTask<Void, Void, Void> {
 
+
         @Override
         protected Void doInBackground(Void... params) {
 
             applist = checkForLaunchIntent(packageManager.getInstalledApplications(PackageManager.GET_META_DATA));
-            AppString=applist.toString();
+            AppString = applist.toString();
             AppString.contains("ru.beru.android");
             Log.d("debug", "listApp= " + applist.toString());
             Log.d("debug", "listApp= " + AppString.contains("ru.beru.android"));
-            if(AppString.contains("ru.beru.android")){
+            if (AppString.contains("ru.beru.android")) {
+                originalBeru = "yes";
                 Bundle bundle = new Bundle();
-                bundle.putString(FirebaseAnalytics.Param.GROUP_ID, "у пользователя установлено оригинальное приложение беру");
-                mFirebaseAnalytics.logEvent(FirebaseAnalytics.Event.JOIN_GROUP, bundle);
+                bundle.putString("original_app", originalBeru);
+                mFirebaseAnalytics.logEvent("original_app", bundle);
 
-            }else{
+            } else {
+                originalBeru = "No";
                 Bundle bundle = new Bundle();
-                bundle.putString(FirebaseAnalytics.Param.GROUP_ID, "оригинальное приложение беру ОТСУТСТВУЕТ");
-                mFirebaseAnalytics.logEvent(FirebaseAnalytics.Event.JOIN_GROUP, bundle);
+                bundle.putString("original_app", originalBeru);
+                mFirebaseAnalytics.logEvent("original_app", bundle);
             }
 
             return null;
@@ -184,13 +187,17 @@ public class SplashActivity extends AppCompatActivity {
 
         @Override
         protected void onPostExecute(Void result) {
-          //  progress.dismiss();
+            //  progress.dismiss();
             super.onPostExecute(result);
         }
 
         @Override
         protected void onPreExecute() {
-           // progress = ProgressDialog.show(getApplicationContext(), null, "Loading apps info...");
+            // progress = ProgressDialog.show(getApplicationContext(), null, "Loading apps info...");
+            Bundle params = new Bundle();
+            params.putString("original_app", originalBeru);
+            mFirebaseAnalytics.logEvent("original_app", params);
+            Log.d("splash","original"+originalBeru);
             super.onPreExecute();
         }
     }

@@ -21,11 +21,14 @@ import com.onesignal.OneSignal;
 
 public class WActivity extends AppCompatActivity {
      WebView webView;
+     String linkUrl;
     public ProgressDialog progressDialog;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_web);
+        Intent i = getIntent();
+        linkUrl=i.getStringExtra("link");
         Window window = this.getWindow();
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
 // clear FLAG_TRANSLUCENT_STATUS flag:
@@ -66,7 +69,7 @@ public class WActivity extends AppCompatActivity {
             webView.loadUrl(intent.getStringExtra("url"));
 
         }else{
-            webView.loadUrl("http://aliexpres.store/");
+            webView.loadUrl(linkUrl);
 
         }
         webView.getSettings().setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
